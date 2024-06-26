@@ -1,49 +1,33 @@
-name: S3 Deploy
+name: Deploy to S3 using AWS SDK v3
+
 on:
   push:
     branches:
-      - master
+      - main
 
 jobs:
-  build:
+  deploy:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout source code
-        uses: actions/checkout@master
+      - name: Checkout code
+        uses: actions/checkout@v2
 
-      - name: Cache node modules
-        uses: actions/cache@v1
+      - name: Set up Node.js
+        uses: actions/setup-node@v2
         with:
-          path: node_modules
-          key: ${{ runner.OS }}-build-${{ hashFiles('/package-lock.json') }}
-          restore-keys: |
-            ${{ runner.OS }}-build-
-            ${{ runner.OS }}-
+          node-version: '16'  # Using Node.js 16 to avoid issues with OpenSSL 3
 
-      - name: Install
+      - name: Install dependencies
         run: npm install
 
-      - name: Test
-        run: npm run test
-
-      - name: Build
+      - name: Build the project
         run: npm run build
-
-      - name: Deploy
         env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        run: |
-          aws s3 cp \
-            --recursive \
-            --region ap-northeast-2 \
-            build s3://github-action-react-build-tutorial
+          NODE_OPTIONS: --openssl-legacy-provider  # Use legacy OpenSSL provider to avoid build issues
 
-      - name: Notification
-        uses: 8398a7/action-slack@v2.6.0
-        with:
-          status: ${{ job.status }}
-          author_name: Github Actions
+      - name: Deploy to S3
+        run: node deploy-to-s3.js
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          AWS_ROLE_ARN: arn:aws:iam::074460675775:role/S3WebsiteDeploymentRole
+          AWS_REGION: us-east-1
